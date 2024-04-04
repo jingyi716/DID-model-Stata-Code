@@ -1,0 +1,31 @@
+## Code used in STATA
+## Set the DID model
+gen event = year - omni_year 
+tab event 
+replace event = -5 if event < -5 
+replace event = 5 if event > 5 
+forvalues i=5(-1)1{ gen pre`i'=(event==-`i'& omni==1) } 
+gen current=(event==0 & omni==1) 
+forvalues i=1(1)5{ gen post`i'=(event==`i'& omni==1) } 
+
+drop pre1 
+ssc install ftools, replace   
+ssc install reghdfe, replace   
+reghdfe y2 pre* current post* EBITDA AssetTurn Lev ROA ProfitMar,absorb(year id) vce(cluster id) 
+
+gen post_omni=(year>omni_year) 
+global control " EBITDA AssetTurn Lev ROA ProfitMar " 
+reg y post_omni $control i.id i.year, vce(cluster id) 
+xtset id year  
+xtreg y post_omni $control i.year,fe vce(cluster id) 
+reghdfe y2 post_omni $control, absorb(id year) vce(cluster id) 
+
+##Export the data
+outreg2 using mydoc.doc,replace 
+graph save d:\figure1 
+
+##Descriptive Statistics
+summarize 
+ssc install outreg2 
+outreg2 using Descriptive.doc, replace sum(log) title(Descriptive statistics) 
+
